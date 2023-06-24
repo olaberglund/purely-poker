@@ -17,22 +17,14 @@ data Rank = Two | Three | Four | Five | Six | Seven | Eight | Nine | Ten | Jack 
 
 data Suit = Diamonds | Spades | Clubs | Hearts deriving (Eq, Enum, Ord)
 
-data Card = Card {rank :: Rank, suit :: Suit}
-
-data ByRank
-
-data BySuit
-
 instance Eq Card where
   (==) = (==) `on` rank
 
 instance Ord Card where
   (<=) = (<=) `on` rank
 
-data Flop = Flop Card Card Card deriving (Show)
+data Card = Card {rank :: Rank, suit :: Suit}
 
--- A hand with it's highest rank(s), and kickers where needed
---
 data Hand
   = High Rank [Rank]
   | Pair Rank [Rank]
@@ -43,7 +35,22 @@ data Hand
   | FullHouse Rank Rank
   | FourKind Rank
   | StraightFlush Rank
-  deriving (Show)
+  deriving (Show, Eq, Ord)
+
+identifyHands :: [Card] -> [Hand]
+identifyHands cs =
+  straightFlushes cs
+    <++ catMaybes [fourKind cs]
+    <++ fullHouses cs
+    <++ flushes cs
+    <++ straights cs
+    <++ threeKinds cs
+    <++ twoPairs cs
+    <++ pairs cs
+    <++ [high cs]
+  where
+    [] <++ xs = xs
+    xs <++ _ = xs
 
 compareRanks :: Rank -> Rank -> Ordering
 compareRanks = compare
@@ -66,7 +73,21 @@ instance Show Suit where
   show Hearts = "h"
 
 main :: IO ()
-main = putStrLn "Hello, Haskell!"
+main = do
+  d <- R.shuffleM deck
+  let ((c11, c12), d') = deal d
+      ((c21, c22), d'') = deal d'
+      (f, d''') = flop d''
+      p1 = identifyHands $ c11 : c12 : f
+      p2 = identifyHands $ c21 : c22 : f
+  print $ "Deal to player 1: " <> show (c11, c12)
+  print $ "Deal to player 2: " <> show (c21, c22)
+  print $ "Flop: " <> show f
+
+  case compare p1 p2 of
+    LT -> print $ "Player 2 wins with: " <> show p2
+    GT -> print $ "Player 1 wins with: " <> show p1
+    EQ -> print "Chop"
 
 draw :: [Card] -> (Maybe Card, [Card])
 draw [] = (Nothing, [])
@@ -75,29 +96,22 @@ draw (c : cs) = (Just c, cs)
 deck :: [Card]
 deck = Card <$> [Two .. Ace] <*> [Diamonds, Spades, Clubs, Hearts]
 
-shuffle :: [Card] -> [Card]
-shuffle cs = R.shuffle' cs (length cs) (mkStdGen 0)
+shuffle :: [Card] -> Int -> [Card]
+shuffle cs n = R.shuffle' cs (length cs) (mkStdGen n)
+
+flop :: [Card] -> ([Card], [Card])
+flop (c1 : c2 : c3 : cs) = ([c1, c2, c3], cs)
+flop _ = error "not enough cards"
+
+deal :: [Card] -> ((Card, Card), [Card])
+deal (c1 : c2 : cs) = ((c1, c2), cs)
+deal _ = error "not enough cards"
 
 occuranceKind :: Int -> [Card] -> [Rank]
 occuranceKind n = fmap rank . M.foldOccur (\c oc cs -> if oc >= n then c : cs else cs) [] . M.fromList
 
 kickers :: Int -> [Rank] -> [Card] -> [Rank]
 kickers n xcs = take n . sortBy (flip compare) . filter (`notElem` xcs) . fmap rank
-
-identifyHands :: [Card] -> [Hand]
-identifyHands cs =
-  straightFlushes cs
-    <++ catMaybes [fourKind cs]
-    <++ fullHouses cs
-    <++ flushes cs
-    <++ straights cs
-    <++ threeKinds cs
-    <++ twoPairs cs
-    <++ pairs cs
-    <++ [high cs]
-  where
-    [] <++ xs = xs
-    xs <++ _ = xs
 
 -- unsafe: assumes non-empty list
 high :: [Card] -> Hand
