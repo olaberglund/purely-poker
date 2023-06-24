@@ -1,0 +1,87 @@
+-- run all tests and report which ones failed
+runAllTests tests = do
+  let results = zip tests [1 ..]
+  let failures = filter (not . fst) results
+  if null failures
+    then putStrLn "All tests passed!"
+    else putStrLn $ "Failed tests: " ++ show (snd <$> failures)
+
+-- test hands
+highHand = [Card Jack Spades, Card King Spades, Card Two Hearts, Card Three Spades, Card Ten Diamonds]
+
+pairHand = [Card Ace Spades, Card Ace Hearts, Card King Spades, Card Queen Spades, Card Jack Spades]
+
+twoPairHand = [Card Ace Spades, Card Ace Hearts, Card King Spades, Card King Hearts, Card Queen Spades]
+
+threeKindHand = [Card Ace Spades, Card Ace Hearts, Card Ace Diamonds, Card King Spades, Card Queen Spades]
+
+wheelHand = [Card Ace Spades, Card Two Spades, Card Three Spades, Card Four Hearts, Card Five Spades]
+
+straightHand1 = [Card Two Spades, Card Three Spades, Card Four Spades, Card Five Hearts, Card Six Spades]
+
+straightHand2 = [Card Two Spades, Card Three Diamonds, Card Four Spades, Card Five Hearts, Card Six Spades, Card Seven Spades]
+
+fullHouseHand1 = [Card Ace Spades, Card Ace Hearts, Card Ace Diamonds, Card King Spades, Card King Hearts]
+
+fullHouseHand2 = [Card Ace Spades, Card Ace Hearts, Card Ace Diamonds, Card King Spades, Card King Hearts, Card King Diamonds]
+
+fourKindHand = [Card Ace Spades, Card Ace Hearts, Card Ace Diamonds, Card Ace Clubs, Card King Spades]
+
+fourKindHand2 = [Card King Spades, Card King Hearts, Card Ace Diamonds, Card Seven Clubs, Card King Spades, Card King Hearts]
+
+straightFlushHand = [Card Two Spades, Card Three Spades, Card Four Spades, Card Five Spades, Card Six Spades]
+
+wheelFlushHand = [Card Two Spades, Card Three Spades, Card Four Spades, Card Five Spades, Card Ace Spades]
+
+straightFlushHand2 = [Card Two Spades, Card Three Spades, Card Four Spades, Card Five Spades, Card Six Spades, Card Seven Spades]
+
+flushHand = [Card Jack Spades, Card Three Spades, Card Four Spades, Card Five Spades, Card Six Spades]
+
+-- -- test cards
+-- highTest = high highHand == High Ace [King, Queen, Jack, Ten]
+
+-- pairTest = pairs pairHand == [Pair Ace [King, Queen, Jack]]
+
+-- twoPairTest = twoPairs twoPairHand == [TwoPair King Ace (Just Queen)]
+
+-- threeKindTest = threeKinds threeKindHand == [ThreeKind Ace [King, Queen]]
+
+-- wheelTest = straights wheelHand == [Straight Five]
+
+-- straightTest = straights straightHand1 == [Straight Six]
+
+-- straightTest2 = straights straightHand2 == [Straight Seven, Straight Six]
+
+-- fullHouseTest = fullHouses fullHouseHand1 == [FullHouse Ace King]
+
+-- fullHouseTest2 = fullHouses fullHouseHand2 == [FullHouse King Ace, FullHouse Ace King]
+
+-- fourKindTest = fourKind fourKindHand == Just (FourKind Ace)
+
+-- fourKindTest2 = fourKind fourKindHand2 == Nothing
+
+-- straightFlushTest = straightFlushes straightFlushHand == [StraightFlush Six]
+
+-- wheelFlushTest = straightFlushes wheelFlushHand == [StraightFlush Five]
+
+-- straightFlushTest2 = straightFlushes straightFlushHand2 == [StraightFlush Seven, StraightFlush Six]
+
+-- flushTest = flushes flushHand == [Flush Six]
+--
+-- tests =
+--   [ highTest,
+--     pairTest,
+--     twoPairTest,
+--     threeKindTest,
+--     wheelTest,
+--     straightTest,
+--     straightTest2,
+--     fullHouseTest,
+--     fullHouseTest2,
+--     fourKindTest,
+--     straightFlushTest,
+--     wheelFlushTest,
+--     straightFlushTest2,
+--     flushTest,
+--     fourKindTest2
+--   ]
