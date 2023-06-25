@@ -4,7 +4,7 @@
 module Main where
 
 import Data.Function (on)
-import Data.List (find, group, groupBy, maximumBy, nub, sort, sortBy, tails, (\\))
+import Data.List (find, group, groupBy, maximumBy, nub, sort, sortBy, sortOn, tails, (\\))
 import Data.List.Split (chunksOf)
 import Data.Maybe (catMaybes)
 import Data.MultiSet as M hiding (concatMap, filter, map, null, (\\))
@@ -29,31 +29,13 @@ data Hand
   = High Rank [Rank]
   | Pair Rank [Rank]
   | TwoPair Rank Rank (Maybe Rank)
-  | ThreeKind Rank [Rank]
+  | ThreeKind Rank
   | Straight Rank
   | Flush Rank
   | FullHouse Rank Rank
   | FourKind Rank
   | StraightFlush Rank
   deriving (Show, Eq, Ord)
-
-identifyHands :: [Card] -> [Hand]
-identifyHands cs =
-  straightFlushes cs
-    <++ catMaybes [fourKind cs]
-    <++ fullHouses cs
-    <++ flushes cs
-    <++ straights cs
-    <++ threeKinds cs
-    <++ twoPairs cs
-    <++ pairs cs
-    <++ [high cs]
-  where
-    [] <++ xs = xs
-    xs <++ _ = xs
-
-compareRanks :: Rank -> Rank -> Ordering
-compareRanks = compare
 
 instance Show Rank where
   show Ace = "A"
@@ -75,19 +57,47 @@ instance Show Suit where
 main :: IO ()
 main = do
   d <- R.shuffleM deck
-  let ((c11, c12), d') = deal d
-      ((c21, c22), d'') = deal d'
-      (f, d''') = flop d''
-      p1 = identifyHands $ c11 : c12 : f
-      p2 = identifyHands $ c21 : c22 : f
-  print $ "Deal to player 1: " <> show (c11, c12)
-  print $ "Deal to player 2: " <> show (c21, c22)
-  print $ "Flop: " <> show f
+  let ((c11, c12), d1) = deal d
+      ((c21, c22), d2) = deal d1
+      (f, d3) = flop d2
+      (t, d4) = turn d3
+      (r, _) = river d4
+      board = f ++ t ++ r
+      p1 = identifyHands $ c11 : c12 : board
+      p2 = identifyHands $ c21 : c22 : board
+  print $ "Dealt to player 1: " <> show (c11, c12)
+  print $ "Dealt to player 2: " <> show (c21, c22)
+  print $ "Board: " <> show board
 
   case compare p1 p2 of
     LT -> print $ "Player 2 wins with: " <> show p2
     GT -> print $ "Player 1 wins with: " <> show p1
     EQ -> print "Chop"
+
+-- utils
+
+identifyHands :: [Card] -> [Hand]
+identifyHands cs =
+  straightFlushes cs
+    <++ catMaybes [fourKind cs]
+    <++ fullHouses cs
+    <++ flushes cs
+    <++ straights cs
+    <++ threeKinds cs
+    <++ twoPairs cs
+    <++ pairs cs
+    <++ [high cs]
+  where
+    [] <++ xs = xs
+    xs <++ _ = xs
+
+keepMostFreqSuit :: [Card] -> [Card]
+keepMostFreqSuit cs = filter ((== mostFreqSuit cs) . suit) cs
+  where
+    mostFreqSuit = suit . head . maximumBy (comparing length) . groupBy sameSuit . sortOn suit
+
+sameSuit :: Card -> Card -> Bool
+sameSuit = (==) `on` suit
 
 draw :: [Card] -> (Maybe Card, [Card])
 draw [] = (Nothing, [])
@@ -99,9 +109,12 @@ deck = Card <$> [Two .. Ace] <*> [Diamonds, Spades, Clubs, Hearts]
 shuffle :: [Card] -> Int -> [Card]
 shuffle cs n = R.shuffle' cs (length cs) (mkStdGen n)
 
-flop :: [Card] -> ([Card], [Card])
+flop, turn, river :: [Card] -> ([Card], [Card])
 flop (c1 : c2 : c3 : cs) = ([c1, c2, c3], cs)
 flop _ = error "not enough cards"
+turn (c1 : cs) = ([c1], cs)
+turn _ = error "not enough cards"
+river = turn
 
 deal :: [Card] -> ((Card, Card), [Card])
 deal (c1 : c2 : cs) = ((c1, c2), cs)
@@ -113,9 +126,12 @@ occuranceKind n = fmap rank . M.foldOccur (\c oc cs -> if oc >= n then c : cs el
 kickers :: Int -> [Rank] -> [Card] -> [Rank]
 kickers n xcs = take n . sortBy (flip compare) . filter (`notElem` xcs) . fmap rank
 
+-- Hands
 -- unsafe: assumes non-empty list
 high :: [Card] -> Hand
-high cs = let highest = rank $ maximum cs in High highest (kickers 4 [highest] cs)
+high cs =
+  let highest = rank $ maximum cs
+   in High highest (kickers 4 [highest] cs)
 
 pairs :: [Card] -> [Hand]
 pairs cs =
@@ -133,31 +149,28 @@ twoPairs cs = do
     safeHead xs = Just $ head xs
 
 threeKinds :: [Card] -> [Hand]
-threeKinds cs =
-  let tkr = occuranceKind 3 cs
-   in ThreeKind <$> tkr <*> pure (kickers 2 [head tkr] cs)
+threeKinds = fmap ThreeKind . occuranceKind 3
 
 flushes :: [Card] -> [Hand]
-flushes cs = flushes' (sortBy (compare `on` suit) cs) []
+flushes = flushes' [] . sort . keepMostFreqSuit
   where
-    flushes' cs@(c1 : c2 : c3 : c4 : c5 : _) fs
-      | all (sameSuit c1) [c2, c3, c4, c5] = flushes' (tail cs) (Flush (rank c5) : fs) -- normal flush
+    flushes' fs cs@(c1 : c2 : c3 : c4 : c5 : _)
+      | all (sameSuit c1) [c2, c3, c4, c5] = flushes' (Flush (rank c5) : fs) (tail cs) -- normal flush
       | otherwise = fs -- not a flush
-    flushes' _ fs = fs -- not enough cards
-    sameSuit = (==) `on` suit
+    flushes' fs _ = fs -- not enough cards
 
 straights :: [Card] -> [Hand]
-straights cs = straights' (nub $ sort cs) []
+straights = straights' [] . nub . sort
   where
-    straights' :: [Card] -> [Hand] -> [Hand]
-    straights' cs'@((Card r1 _) : _ : _ : _ : (Card r5 _) : _) ss
-      | nRanksAsc 5 cs' = straights' (tail cs') (Straight r5 : ss) -- normal
-      | nRanksAsc 4 cs'
+    straights' :: [Hand] -> [Card] -> [Hand]
+    straights' ss cs@((Card r1 _) : _ : _ : _ : (Card r5 _) : _)
+      | nRanksAsc 4 cs
           && r1 == Two
           && Ace `elem` (rank <$> cs) =
-          straights' (tail cs') (Straight Five : ss) -- wheel
-      | otherwise = straights' (tail cs') ss -- not a straight
-    straights' _ ss = ss -- not enough cards
+          straights' (Straight Five : ss) (filter ((/= Ace) . rank) (trace (show cs) cs)) -- wheel
+      | nRanksAsc 5 cs = straights' (Straight r5 : ss) (tail cs) -- normal
+      | otherwise = straights' ss (tail cs) -- not a straight
+    straights' ss _ = ss -- not enough cards
     nRanksAsc n = ascending . fmap rank . take n
     ascending xs = and $ zipWith isSuccessor xs (tail xs)
     isSuccessor = (>=) . succ'
@@ -166,7 +179,7 @@ straights cs = straights' (nub $ sort cs) []
 
 fullHouses :: [Card] -> [Hand]
 fullHouses cs = do
-  ThreeKind rt _ <- threeKinds cs
+  ThreeKind rt <- threeKinds cs
   (Pair rp _) <- pairs $ filter ((/= rt) . rank) cs
   return $ FullHouse rt rp
 
@@ -178,7 +191,6 @@ fourKind cs =
         _ -> Nothing
 
 straightFlushes :: [Card] -> [Hand]
-straightFlushes cs = map toFlushStraight $ straights $ filter ((== freqSuit) . suit) cs
+straightFlushes = map toFlushStraight . straights . keepMostFreqSuit
   where
-    (Card _ freqSuit) = head $ maximumBy (comparing length) (group $ sort cs)
     toFlushStraight (Straight r) = StraightFlush r
