@@ -5,35 +5,35 @@ import Data.Char (digitToInt)
 import Main
 
 -- test hands
-highHand = identifyHands (cards "2d 8h 9s Jh 3h") == [High Jack [Nine, Eight, Three, Two]]
+highHand = identifyBestHand (cards "2d 8h 9s Jh 3h") == Just (High Jack [Nine, Eight, Three, Two])
 
-pairHand = identifyHands (cards "2d 2h 9s Jh 3d") == [Pair Two [Jack, Nine, Three]]
+pairHand = identifyBestHand (cards "2d 2h 9s Jh 3d") == Just (Pair Two [Jack, Nine, Three])
 
-twoPairHand = identifyHands (cards "2d 2h 9s 9h 3h") == [TwoPair (TwoPairRank Two Nine) (Just Three)]
+twoPairHand = identifyBestHand (cards "2d 2h 9s 9h 3h") == Just (TwoPair (TwoPairRank Two Nine) (Just Three))
 
-threeKindHand = identifyHands (cards "2d 2h 2s 9h 3h") == [ThreeKind Two [Nine, Three]]
+threeKindHand = identifyBestHand (cards "2d 2h 2s 9h 3h") == Just (ThreeKind Two [Nine, Three])
 
-wheelHand = identifyHands (cards "2d 3h 4s 5h Ah") == [Straight Five]
+wheelHand = identifyBestHand (cards "2d 3h 4s 5h Ah") == Just (Straight Five)
 
-straightHand1 = identifyHands (cards "2d 3h 4s 5h 6h") == [Straight Six]
+straightHand1 = identifyBestHand (cards "2d 3h 4s 5h 6h") == Just (Straight Six)
 
-straightHand2 = identifyHands (cards "2d 3h 4s 5h 6h 7h") == [Straight Seven, Straight Six]
+straightHand2 = identifyBestHand (cards "2d 3h 4s 5h 6h 7h") == Just (Straight Seven)
 
-fullHouseHand1 = identifyHands (cards "Ad Ah As Kh Kh") == [FullHouse Ace King]
+fullHouseHand1 = identifyBestHand (cards "Ad Ah As Kh Kh") == Just (FullHouse Ace King)
 
-fullHouseHand2 = identifyHands (cards "Ad Ah As Kh Kc Jc") == [FullHouse Ace King]
+fullHouseHand2 = identifyBestHand (cards "Ad Ah As Kh Kc Jc") == Just (FullHouse Ace King)
 
-fourKindHand = identifyHands (cards "Ad Ah As Ac Kh") == [FourKind Ace]
+fourKindHand = identifyBestHand (cards "Ad Ah As Ac Kh") == Just (FourKind Ace)
 
-fourKindHand2 = identifyHands (cards "Ad Ah As Ac Kh Kc Jc") == [FourKind Ace]
+fourKindHand2 = identifyBestHand (cards "Ad Ah As Ac Kh Kc Jc") == Just (FourKind Ace)
 
-straightFlushHand = identifyHands (cards "2d 3d 4d 5d 6d") == [StraightFlush Six]
+straightFlushHand = identifyBestHand (cards "2d 3d 4d 5d 6d") == Just (StraightFlush Six)
 
-wheelFlushHand = identifyHands (cards "2d 3d 4d 5d Ad") == [StraightFlush Five]
+wheelFlushHand = identifyBestHand (cards "2d 3d 4d 5d Ad") == Just (StraightFlush Five)
 
-straightFlushHand2 = identifyHands (cards "2d 3d 4d 5d 6d 7d") == [StraightFlush Seven, StraightFlush Six]
+straightFlushHand2 = identifyBestHand (cards "2d 3d 4d 5d 6d 7d") == Just (StraightFlush Seven)
 
-flushHand = identifyHands (cards "2d 8d Jd Qd Ad") == [Flush [Ace, Queen, Jack, Eight, Two]]
+flushHand = identifyBestHand (cards "2d 8d Jd Qd Ad") == Just (Flush [Ace, Queen, Jack, Eight, Two])
 
 -- run all tests and report when something is wrong
 testHands :: IO ()
@@ -60,28 +60,6 @@ testHands = do
   if null failures
     then putStrLn "All tests passed"
     else putStrLn $ "Failed tests: " ++ show (fst <$> failures)
-
-possible1 = possibleHands (tmap card ("Ac", "Ad")) [] [] == [Pair Ace []]
-
-possible2 = possibleHands (tmap card ("Ac", "Ad")) [card "Ah"] [] == [ThreeKind Ace []]
-
-possible3 = possibleHands (tmap card ("Ac", "7d")) [] [] == [High Ace [Seven]]
-
-testPossibleHands :: IO ()
-testPossibleHands = do
-  let tests =
-        [ possible1,
-          possible2,
-          possible3
-        ]
-  let results = zip [1 ..] tests
-  let failures = filter (not . snd) results
-  if null failures
-    then putStrLn "All tests passed"
-    else putStrLn $ "Failed tests: " ++ show (fst <$> failures)
-
-tmap :: (a -> b) -> (a, a) -> (b, b)
-tmap f (a, b) = (f a, f b)
 
 card :: String -> Card
 card [r, 'h'] = card' r Hearts

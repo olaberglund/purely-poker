@@ -5,11 +5,13 @@
 
 module Main where
 
+import Control.Applicative ((<|>))
 import Control.DeepSeq (NFData, force)
-import Control.Monad (guard)
+import Control.Monad (guard, (>=>))
 import Control.Parallel.Strategies (rpar, rseq, runEval, runEvalIO)
 import Data.Char (digitToInt)
 import Data.Foldable (forM_)
+import qualified Data.Foldable as F
 import Data.Function (on)
 import Data.Functor ((<&>))
 import Data.List (find, group, groupBy, maximumBy, nub, sort, sortBy, sortOn, tails, (\\))
@@ -23,6 +25,7 @@ import qualified Math.Combinatorics.Multiset as CM
 import System.Environment (getArgs)
 import System.Random (mkStdGen)
 import qualified System.Random.Shuffle as R
+import Prelude hiding (maximum)
 
 data Rank = Two | Three | Four | Five | Six | Seven | Eight | Nine | Ten | Jack | Queen | King | Ace deriving (Ord, Eq, Enum, Generic, NFData)
 
@@ -76,53 +79,37 @@ main :: IO ()
 main = do
   -- n <- getArgs <&> (read . head)
   -- guard (n >= 0 && n <= 5)
-  let (cp1, d1) = deal (shuffle deck 0)
-      (cp2, d2) = deal d1
-      (b, rem) = drawN 4 d1
+  let ([cp2, cp1], d2) = deal $ deal ([], shuffle deck 0)
+      (b, rem) = drawN 1 d2
+      p1 = possibleHands (cp1 ++ b) rem
+      p2 = possibleHands (cp2 ++ b) rem
+      p1Wins = length $ filter id $ zipWith (>) p1 p2
+      p2Wins = length $ filter id $ zipWith (<) p1 p2
+      chops = length $ filter id $ zipWith (==) p1 p2
 
-      -- p1 = runEval $ do
-      --   p1' <- rpar (force (possibleHands (c11, c12) b rem))
-      --   rseq p1'
-      --   return p1'
-      -- p2 = runEval $ do
-      --   p2' <- rpar (force (possibleHands (c21, c22) b rem))
-      --   rseq p2'
-      --   return p2'
-
-      p1 = possibleHands cp1 b rem
-      p2 = possibleHands cp2 b rem
-  let p1Wins = length $ filter id ((>) <$> p1 <*> p2)
-      p2Wins = length $ filter id ((<) <$> p1 <*> p2)
-
-  print $ "Player 1 wins " <> show (p1Wins * 100 `div` (p1Wins + p2Wins)) <> "% of the time"
-  print $ "Player 2 wins " <> show (p2Wins * 100 `div` (p1Wins + p2Wins)) <> "% of the time"
+  print $ "P(Player 1 wins) = " <> show (fromIntegral p1Wins / fromIntegral (p1Wins + p2Wins))
+  print $ "P(Player 2 wins) = " <> show (fromIntegral p2Wins / fromIntegral (p1Wins + p2Wins))
+  print $ "P(Chop) = " <> show (fromIntegral chops / fromIntegral (p1Wins + p2Wins))
 
 -- utils
 
-identifyHands :: [Card] -> [Hand]
-identifyHands cs =
-  straightFlushes cs
-    <++ catMaybes [fourKind cs]
-    <++ fullHouses cs
-    <++ flushes cs
-    <++ straights cs
-    <++ threeKinds cs
-    <++ twoPairs cs
-    <++ pairs cs
-    <++ [high cs]
+-- given: player cards, board cards, remaining cards, calculate all best hands for each combination of remaining board cards
+possibleHands :: [Card] -> [Card] -> [Hand]
+possibleHands hs rem = catMaybes $ boards <&> identifyBestHand . (hs ++)
   where
-    [] <++ xs = xs
-    xs <++ _ = xs
+    boards = subsequencesOfSize (7 - length hs) rem
 
-possibleHands :: (Card, Card) -> [Card] -> [Card] -> [Hand]
-possibleHands (c1, c2) board rem = combinationsOfLen (5 - length board) rem >>= identifyHands . (cs ++) -- \c -> let hs = identifyHands (cs ++ c) in trace (show hs) hs
-  where
-    cs = c1 : c2 : board
-
-combinationsOfLen n rem =
-  let x = CM.permutations $ CM.fromCounts [(True, n), (False, length rem - n)]
-      fn mask = map fst $ filter snd (zip rem mask)
-   in map fn x
+identifyBestHand [] = error "No cards"
+identifyBestHand cs =
+  straightFlush cs
+    <|> fourKind cs
+    <|> fullHouse cs
+    <|> flush cs
+    <|> straight cs
+    <|> threeKind cs
+    <|> twoPair cs
+    <|> pair cs
+    <|> pure (high cs)
 
 -- c1 *== c2 = suit c1 == suit c2 && rank c1 == rank c2
 
@@ -154,8 +141,8 @@ turn (c1 : cs) = ([c1], cs)
 turn _ = error "not enough cards"
 river = turn
 
-deal :: [Card] -> ((Card, Card), [Card])
-deal (c1 : c2 : cs) = ((c1, c2), cs)
+deal :: ([[Card]], [Card]) -> ([[Card]], [Card])
+deal (holes, c1 : c2 : cs) = ([c1, c2] : holes, cs)
 deal _ = error "not enough cards"
 
 occuranceKind :: Int -> [Card] -> [Rank]
@@ -168,37 +155,37 @@ kickers n xcs = take n . sortBy (flip compare) . filter (`notElem` xcs) . fmap r
 -- unsafe: assumes non-empty list
 high :: [Card] -> Hand
 high cs =
-  let highest = rank $ maximum cs
+  let highest = rank $ F.maximum cs
    in High highest (kickers 4 [highest] cs)
 
-pairs :: [Card] -> [Hand]
-pairs cs =
+pair :: [Card] -> Maybe Hand
+pair cs =
   let ps = occuranceKind 2 cs
-   in Pair <$> ps <*> pure (kickers 3 ps cs)
+   in maximum $ Pair <$> ps <*> pure (kickers 3 ps cs)
 
-twoPairs :: [Card] -> [Hand]
-twoPairs cs = do
-  [r1, r2] <- combinationsOfLen 2 (occuranceKind 2 cs)
+twoPair :: [Card] -> Maybe Hand
+twoPair cs = maximum $ do
+  [r1, r2] <- subsequencesOfSize 2 (occuranceKind 2 cs)
   return $ TwoPair (TwoPairRank r1 r2) (safeHead $ kickers 1 [r1, r2] cs)
   where
     safeHead [] = Nothing
     safeHead xs = Just $ head xs
 
-threeKinds :: [Card] -> [Hand]
-threeKinds cs =
+threeKind :: [Card] -> Maybe Hand
+threeKind cs =
   let ts = occuranceKind 3 cs
-   in ThreeKind <$> ts <*> pure (kickers 2 ts cs)
+   in maximum $ ThreeKind <$> ts <*> pure (kickers 2 ts cs)
 
-flushes :: [Card] -> [Hand]
-flushes = flushes' [] . sortBy (flip compare) . keepMostFreqSuit
+flush :: [Card] -> Maybe Hand
+flush = maximum . flushes' [] . sortBy (flip compare) . keepMostFreqSuit
   where
     flushes' fs cs@(c1 : c2 : c3 : c4 : c5 : _)
       | all (sameSuit c1) [c2, c3, c4, c5] = flushes' (Flush (rank <$> take 5 cs) : fs) (tail cs) -- normal flush
       | otherwise = fs -- not a flush
     flushes' fs _ = fs -- not enough cards
 
-straights :: [Card] -> [Hand]
-straights = straights' [] . nub . sort
+straight :: [Card] -> Maybe Hand
+straight = maximum . straights' [] . nub . sort
   where
     straights' :: [Hand] -> [Card] -> [Hand]
     straights' ss cs@((Card r1 _) : _ : _ : _ : (Card r5 _) : _)
@@ -215,10 +202,10 @@ straights = straights' [] . nub . sort
     succ' Ace = Two
     succ' r = succ r
 
-fullHouses :: [Card] -> [Hand]
-fullHouses cs = do
-  ThreeKind rt _ <- threeKinds cs
-  (Pair rp _) <- pairs $ filter ((/= rt) . rank) cs
+fullHouse :: [Card] -> Maybe Hand
+fullHouse cs = maximum $ do
+  rt <- occuranceKind 3 cs
+  rp <- occuranceKind 2 $ filter ((/= rt) . rank) cs
   return $ FullHouse rt rp
 
 fourKind :: [Card] -> Maybe Hand
@@ -228,10 +215,16 @@ fourKind cs =
         [r] -> Just $ FourKind r
         _ -> Nothing
 
-straightFlushes :: [Card] -> [Hand]
-straightFlushes = map toFlushStraight . straights . keepMostFreqSuit
+straightFlush :: [Card] -> Maybe Hand
+straightFlush = straight . keepMostFreqSuit >=> return . toFlushStraight
   where
     toFlushStraight (Straight r) = StraightFlush r
+
+-- maximum =<< return . toFlushStraight =<< straight . keepMostFreqSuit
+
+maximum :: Ord a => [a] -> Maybe a
+maximum [] = Nothing
+maximum xs = Just $ F.maximum xs
 
 -- https://stackoverflow.com/a/21288092/13131325
 
