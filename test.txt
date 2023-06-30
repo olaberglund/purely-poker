@@ -1,8 +1,0 @@
-
-
-possibleHands' (c1, c2) board = nCombinations (5 - length board) >>= identifyHands . (cs ++)
-  where
-    nCombinations = sequence . flip take (tails (filter (\c -> not $ any (c *==) cs) deck))
-    c1 *== c2 = suit c1 == suit c2 && rank c1 == rank c2
-    cs = c1 : c2 : board
--- run all tests and report which ones failed
