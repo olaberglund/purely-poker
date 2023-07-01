@@ -26,7 +26,7 @@ executable purely-poker
     main-is:          Main.hs
 
     -- Modules included in this executable, other than Main.
-    other-modules:  Paths_purelypoker, Test.Test
+    other-modules:  Paths_purelypoker, Test
 
     data-files:       data/poker-hand-training-true.data
 
