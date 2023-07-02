@@ -110,7 +110,8 @@ identifyBestHand cs =
     <|> threeKind cs
     <|> twoPair cs
     <|> pair cs
-    <|> pure (high cs)
+    <|> high cs
+    <|> Nothing
 
 keepMostFreqSuit :: [Card] -> [Card]
 keepMostFreqSuit cs = filter ((== mostFreqSuit cs) . suit) cs
@@ -152,10 +153,10 @@ kickers n xcs = take n . sortBy (flip compare) . filter (`notElem` xcs) . fmap r
 
 -- Hands
 -- unsafe: assumes non-empty list
-high :: [Card] -> Hand
-high cs =
-  let highest = rank $ F.maximum cs
-   in High highest (kickers 4 [highest] cs)
+high :: [Card] -> Maybe Hand
+high cs = do
+  highest <- rank <$> maximum cs
+  return $ High highest (kickers 4 [highest] cs)
 
 pair :: [Card] -> Maybe Hand
 pair cs =

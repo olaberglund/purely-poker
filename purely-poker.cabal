@@ -40,7 +40,6 @@ executable purely-poker
                     , parallel
                     , deepseq
                     , vector
-                    , vector-strategies
     hs-source-dirs:   app
     default-language: Haskell2010
-    ghc-options: -O2 -threaded -rtsopts -eventlog "-with-rtsopts=-N -l -lf"
+    ghc-options: -O2 -threaded -rtsopts -eventlog "-with-rtsopts=-N -l -s -lf"
