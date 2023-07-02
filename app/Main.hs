@@ -79,12 +79,9 @@ main :: IO ()
 main = do
   let ([cp2, cp1], d2) = deal $ deal ([], shuffle deck 0)
       (b, rem) = drawN 0 d2
-      -- p1 = possibleHands (cp1 ++ b) rem
-      -- p2 = possibleHands (cp2 ++ b) rem
-      --
-      (p1, p2) = (possibleHands (cp1 ++ b) rem, possibleHands (cp2 ++ b) rem)
-      p1Ws = countWins (>) p1 p2
-      p2Ws = countWins (<) p1 p2
+      p1 = possibleHands (cp1 ++ b) rem
+      p2 = possibleHands (cp2 ++ b) rem
+      (p1Ws, p2Ws) = (countWins (>) p1 p2, countWins (<) p1 p2) `using` parTuple2 rseq rseq
 
   putStrLn $ "P(Player 1 wins) = " <> show (calcWinRatio p1Ws (p1Ws + p2Ws))
   putStrLn $ "P(Player 2 wins) = " <> show (calcWinRatio p2Ws (p1Ws + p2Ws))
