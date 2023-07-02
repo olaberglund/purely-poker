@@ -109,8 +109,6 @@ identifyBestHand cs =
     <|> pair cs
     <|> pure (high cs)
 
--- c1 *== c2 = suit c1 == suit c2 && rank c1 == rank c2
-
 keepMostFreqSuit :: [Card] -> [Card]
 keepMostFreqSuit cs = filter ((== mostFreqSuit cs) . suit) cs
   where
