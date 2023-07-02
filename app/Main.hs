@@ -82,9 +82,12 @@ main = do
       p1 = possibleHands (cp1 ++ b) rem
       p2 = possibleHands (cp2 ++ b) rem
       (p1Ws, p2Ws) = (countWins (>) p1 p2, countWins (<) p1 p2) `using` parTuple2 rseq rseq
+      chops = countWins (==) p1 p2
+      totHands = p1Ws + p2Ws + chops
 
-  putStrLn $ "P(Player 1 wins) = " <> show (calcWinRatio p1Ws (p1Ws + p2Ws))
-  putStrLn $ "P(Player 2 wins) = " <> show (calcWinRatio p2Ws (p1Ws + p2Ws))
+  putStrLn $ "P(Player 1 wins) = " <> show (calcWinRatio p1Ws totHands)
+  putStrLn $ "P(Player 2 wins) = " <> show (calcWinRatio p2Ws totHands)
+  putStrLn $ "P(chop) = " <> show (calcWinRatio chops totHands)
   where
     countWins comp p1 p2 = length $ filter id $ zipWith comp p1 p2
     calcWinRatio pws totpws = fromIntegral pws / fromIntegral totpws
