@@ -8,7 +8,7 @@ module Main where
 import Control.Applicative ((<|>))
 import Control.DeepSeq (NFData, force)
 import Control.Monad (guard, (>=>))
-import Control.Parallel.Strategies (rpar, rseq, runEval, runEvalIO)
+import Control.Parallel.Strategies (parEval, parList, parListChunk, parListN, parListSplitAt, parMap, parPair, parTuple2, rdeepseq, rpar, rseq, runEval, runEvalIO, using)
 import Data.Char (digitToInt)
 import Data.Foldable (forM_)
 import qualified Data.Foldable as F
@@ -16,8 +16,8 @@ import Data.Function (on)
 import Data.Functor ((<&>))
 import Data.List (find, group, groupBy, maximumBy, nub, sort, sortBy, sortOn, tails, (\\))
 import Data.List.Split (chunksOf)
-import Data.Maybe (catMaybes)
-import Data.MultiSet as M hiding (concatMap, filter, map, null, (\\))
+import Data.Maybe (catMaybes, mapMaybe)
+import Data.MultiSet as M hiding (concatMap, filter, map, mapMaybe, null, (\\))
 import Data.Ord (comparing)
 import Debug.Trace (trace)
 import GHC.Generics (Generic)
@@ -77,25 +77,26 @@ instance Show Suit where
 
 main :: IO ()
 main = do
-  -- n <- getArgs <&> (read . head)
-  -- guard (n >= 0 && n <= 5)
   let ([cp2, cp1], d2) = deal $ deal ([], shuffle deck 0)
-      (b, rem) = drawN 1 d2
-      p1 = possibleHands (cp1 ++ b) rem
-      p2 = possibleHands (cp2 ++ b) rem
-      p1Wins = length $ filter id $ zipWith (>) p1 p2
-      p2Wins = length $ filter id $ zipWith (<) p1 p2
-      chops = length $ filter id $ zipWith (==) p1 p2
+      (b, rem) = drawN 0 d2
+      -- p1 = possibleHands (cp1 ++ b) rem
+      -- p2 = possibleHands (cp2 ++ b) rem
+      --
+      (p1, p2) = (possibleHands (cp1 ++ b) rem, possibleHands (cp2 ++ b) rem)
+      p1Ws = countWins (>) p1 p2
+      p2Ws = countWins (<) p1 p2
 
-  print $ "P(Player 1 wins) = " <> show (fromIntegral p1Wins / fromIntegral (p1Wins + p2Wins))
-  print $ "P(Player 2 wins) = " <> show (fromIntegral p2Wins / fromIntegral (p1Wins + p2Wins))
-  print $ "P(Chop) = " <> show (fromIntegral chops / fromIntegral (p1Wins + p2Wins))
+  putStrLn $ "P(Player 1 wins) = " <> show (calcWinRatio p1Ws (p1Ws + p2Ws))
+  putStrLn $ "P(Player 2 wins) = " <> show (calcWinRatio p2Ws (p1Ws + p2Ws))
+  where
+    countWins comp p1 p2 = length $ filter id $ zipWith comp p1 p2
+    calcWinRatio pws totpws = fromIntegral pws / fromIntegral totpws
 
 -- utils
 
 -- given: player cards, board cards, remaining cards, calculate all best hands for each combination of remaining board cards
 possibleHands :: [Card] -> [Card] -> [Hand]
-possibleHands hs rem = catMaybes $ boards <&> identifyBestHand . (hs ++)
+possibleHands hs rem = catMaybes (map (identifyBestHand . (hs ++)) boards `using` parListChunk 3000 rdeepseq)
   where
     boards = subsequencesOfSize (7 - length hs) rem
 

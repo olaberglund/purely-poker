@@ -28,7 +28,6 @@ executable purely-poker
     -- Modules included in this executable, other than Main.
     other-modules:  Paths_purelypoker, Test
 
-    data-files:       data/poker-hand-training-true.data
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
@@ -40,6 +39,8 @@ executable purely-poker
                     , split
                     , parallel
                     , deepseq
+                    , vector
+                    , vector-strategies
     hs-source-dirs:   app
     default-language: Haskell2010
-    ghc-options:      -O2 
+    ghc-options: -O2 -threaded -rtsopts -eventlog "-with-rtsopts=-N -s -l -lf"
