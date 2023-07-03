@@ -152,7 +152,6 @@ kickers :: Int -> [Rank] -> [Card] -> [Rank]
 kickers n xcs = take n . sortBy (flip compare) . filter (`notElem` xcs) . fmap rank
 
 -- Hands
--- unsafe: assumes non-empty list
 high :: [Card] -> Maybe Hand
 high cs = do
   highest <- rank <$> maximum cs
@@ -219,8 +218,6 @@ straightFlush :: [Card] -> Maybe Hand
 straightFlush = straight . keepMostFreqSuit >=> return . toFlushStraight
   where
     toFlushStraight (Straight r) = StraightFlush r
-
--- maximum =<< return . toFlushStraight =<< straight . keepMostFreqSuit
 
 maximum :: Ord a => [a] -> Maybe a
 maximum [] = Nothing
