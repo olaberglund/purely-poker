@@ -134,13 +134,6 @@ deck = Card <$> [Two .. Ace] <*> [Diamonds, Spades, Clubs, Hearts]
 shuffle :: [Card] -> Int -> [Card]
 shuffle cs n = R.shuffle' cs (length cs) (mkStdGen n)
 
-flop, turn, river :: [Card] -> ([Card], [Card])
-flop (c1 : c2 : c3 : cs) = ([c1, c2, c3], cs)
-flop _ = error "not enough cards"
-turn (c1 : cs) = ([c1], cs)
-turn _ = error "not enough cards"
-river = turn
-
 deal :: ([[Card]], [Card]) -> ([[Card]], [Card])
 deal (holes, c1 : c2 : cs) = ([c1, c2] : holes, cs)
 deal _ = error "not enough cards"
