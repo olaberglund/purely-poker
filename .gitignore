@@ -84,3 +84,4 @@ bench.html
 .projectile
 
 *.eventlog
+.vscode

@@ -26,12 +26,12 @@ executable purely-poker
     main-is:          Main.hs
 
     -- Modules included in this executable, other than Main.
-    other-modules:  Paths_purelypoker, Test
+    other-modules:  Paths_purelypoker, Test, Poker
 
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
-    build-depends:    base ^>=4.15.1.0
+    build-depends:    base ^>=4.16.4.0
                     , random-shuffle
                     , random
                     , multiset
@@ -40,6 +40,11 @@ executable purely-poker
                     , parallel
                     , deepseq
                     , vector
+                    , servant-server
+                    , aeson
+                    , warp
+                    , servant-lucid
+                    , lucid
     hs-source-dirs:   app
     default-language: Haskell2010
     ghc-options: -O2 -threaded -rtsopts -eventlog "-with-rtsopts=-N -l -s -lf"

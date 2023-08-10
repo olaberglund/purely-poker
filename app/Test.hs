@@ -6,8 +6,8 @@ import Data.Foldable (find)
 import Data.Functor ((<&>))
 import Data.List.Split (splitOn, wordsBy)
 import Data.Maybe (fromMaybe)
-import Main
 import Paths_purelypoker
+import Poker
 
 parseHand :: String -> (Maybe Hand, Int)
 parseHand = parseHand' . map read . splitOn ","
