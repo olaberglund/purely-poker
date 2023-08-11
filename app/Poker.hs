@@ -32,7 +32,9 @@ data Rank = Two | Three | Four | Five | Six | Seven | Eight | Nine | Ten | Jack 
 
 instance ToJSON Rank
 
-data Suit = Diamonds | Spades | Clubs | Hearts deriving (Eq, Enum, Ord)
+data Suit = Diamonds | Spades | Clubs | Hearts deriving (Eq, Enum, Ord, Generic)
+
+instance ToJSON Suit
 
 instance Eq Card where
   (==) = (==) `on` rank
@@ -40,7 +42,9 @@ instance Eq Card where
 instance Ord Card where
   (<=) = (<=) `on` rank
 
-data Card = Card {rank :: Rank, suit :: Suit}
+data Card = Card {rank :: Rank, suit :: Suit} deriving (Generic)
+
+instance ToJSON Card
 
 data TwoPairRank = TwoPairRank Rank Rank deriving (Show, Eq, Generic, NFData)
 
