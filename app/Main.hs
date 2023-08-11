@@ -1,11 +1,15 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 
 module Main where
 
+import Data.Text (Text, pack)
+import GHC.TypeLits (KnownSymbol, symbolVal)
 import Lucid
 import Network.Wai.Handler.Warp (run)
 import Poker
@@ -13,30 +17,50 @@ import Servant
 import Servant.HTML.Lucid
 import Test (card)
 
-hands :: [String]
-hands = map show [High Ace [King, Queen, Jack, Ten, Nine], Pair Ace [King, Queen, Jack, Ten], Pair Ace [King, Queen, Jack, Nine]]
+newtype Result = Result {winner :: Card}
+
+type ComparisonSite = "comparison"
+
+type PokerSite = "poker"
+
+data HomePage = HomePage
 
 type PokerAPI =
-  "poker" :> Get '[JSON] [String]
-    :<|> "compare" :> Capture "first" String :> Capture "second" String :> Get '[HTML] (Html ())
+  PokerSite :> Get '[HTML] HomePage
+    :<|> ComparisonSite :> QueryParam "first" String :> QueryParam "second" String :> Get '[HTML] Result
 
-instance ToHtml Card where
-  toHtml c = span_ (toHtml $ show c)
+urlpath :: forall s. (KnownSymbol s) => Text
+urlpath = pack $ symbolVal (Proxy :: Proxy s)
+
+instance ToHtml HomePage where
+  toHtml HomePage =
+    doc_
+      ( div_
+          ( h1_ "Compare two cards!"
+              <> form_
+                [action_ (urlpath @ComparisonSite)]
+                (inp_ "first" "First Card:")
+              <> inp_ "second" "Second Card:"
+              <> br_ []
+              <> br_ []
+              <> button_ "Submit"
+          )
+      )
   toHtmlRaw = toHtml
 
-instance ToHtml [Card] where
-  toHtml cs = div_ (foldMap toHtml cs)
+instance ToHtml Result where
+  toHtml (Result w) = mempty
   toHtmlRaw = toHtml
+
+inp_ :: (Applicative m) => Text -> HtmlT m () -> HtmlT m ()
+inp_ id label = label_ [for_ id] label <> br_ [] <> input_ [id_ id, name_ id]
 
 server :: Server PokerAPI
-server = return hands :<|> comparison
+server = return HomePage :<|> comparison
   where
-    comparison :: String -> String -> Handler (Html ())
-    comparison s1 s2 = do
-      let c1 = card s1
-          c2 = card s2
-          winner = compare c1 c2
-      return $ doc_ (toHtml [c1, c2])
+    comparison :: Maybe String -> Maybe String -> Handler Result
+    comparison (Just s1) (Just s2) = return $ Result $ max (card s1) (card s2)
+    comparison _ _ = return $ Result (card "Ah")
 
 app :: Application
 app = serve (Proxy @PokerAPI) server
@@ -44,4 +68,5 @@ app = serve (Proxy @PokerAPI) server
 main :: IO ()
 main = run 8080 app
 
-doc_ b = doctypehtml_ $ html_ $ body_ $ h1_ "Hello World!" <> b
+doc_ :: (Applicative m) => HtmlT m () -> HtmlT m ()
+doc_ = doctypehtml_ . html_ . body_
