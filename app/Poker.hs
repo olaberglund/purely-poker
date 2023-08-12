@@ -86,13 +86,11 @@ instance Show Suit where
   show Clubs = "c"
   show Hearts = "h"
 
-go :: [Card] -> [Card] -> Int -> (Double, Double, Double)
-go cp1 cp2 n = do
-  let d = shuffle deck 0
-      rem = filter (not . flip any (cp1 ++ cp2) . strictEquals) d -- remove player cards from deck
-      (b, rem') = drawN n rem -- draw board cards
-      p1 = possibleHands (cp1 ++ b) rem' -- calculate all possible hands for player 1
-      p2 = possibleHands (cp2 ++ b) rem' -- calculate all possible hands for player 2
+go :: [Card] -> [Card] -> [Card] -> (Double, Double, Double)
+go cp1 cp2 b = do
+  let rem = filter (not . flip any (cp1 ++ cp2 ++ b) . strictEquals) deck
+      p1 = possibleHands (cp1 ++ b) rem
+      p2 = possibleHands (cp2 ++ b) rem
       (p1Ws, p2Ws) = (countWins (>) p1 p2, countWins (<) p1 p2) `using` parTuple2 rseq rseq
       chops = countWins (==) p1 p2
       totHands = p1Ws + p2Ws + chops
