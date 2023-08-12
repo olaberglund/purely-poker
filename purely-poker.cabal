@@ -46,6 +46,7 @@ executable purely-poker
                     , servant-lucid
                     , lucid
                     , text
+                    , http-api-data
     hs-source-dirs:   app
     default-language: Haskell2010
     ghc-options: -O2 -threaded -rtsopts -eventlog "-with-rtsopts=-N -l -s -lf"

@@ -5,7 +5,7 @@ import Data.Char (digitToInt)
 import Data.Foldable (find)
 import Data.Functor ((<&>))
 import Data.List.Split (splitOn, wordsBy)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (catMaybes, fromMaybe, mapMaybe)
 import Paths_purelypoker
 import Poker
 
@@ -51,17 +51,17 @@ toInt (FourKind _) = 7
 toInt (StraightFlush Ace) = 9
 toInt (StraightFlush _) = 8
 
-card :: String -> Card
-card [r, 'h'] = card' r Hearts
-card [r, 'd'] = card' r Diamonds
-card [r, 's'] = card' r Spades
-card [r, 'c'] = card' r Clubs
-card _ = error "invalid card"
+card :: String -> Maybe Card
+card [r, 'h'] = Just $ card' r Hearts
+card [r, 'd'] = Just $ card' r Diamonds
+card [r, 's'] = Just $ card' r Spades
+card [r, 'c'] = Just $ card' r Clubs
+card _ = Nothing
 
 card' = Card . rank'
 
 cards :: String -> [Card]
-cards = map card . words
+cards = mapMaybe card . words
 
 rank' 'A' = Ace
 rank' 'K' = King

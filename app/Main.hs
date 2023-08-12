@@ -1,6 +1,8 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
@@ -8,7 +10,9 @@
 
 module Main where
 
-import Data.Text (Text, pack)
+import Data.Aeson (FromJSON)
+import Data.Text (Text, pack, unpack)
+import GHC.Generics (Generic)
 import GHC.TypeLits (KnownSymbol, symbolVal)
 import Lucid
 import Network.Wai.Handler.Warp (run)
@@ -16,51 +20,82 @@ import Poker
 import Servant
 import Servant.HTML.Lucid
 import Test (card)
+import Web.FormUrlEncoded
 
-newtype Result = Result {winner :: Card}
+newtype Result = Result {evaluationData :: (Double, Double, Double)}
 
 type ComparisonSite = "comparison"
 
-type PokerSite = "poker"
-
 data HomePage = HomePage
 
+data CardForm = CardForm
+  { first :: Card,
+    second :: Card,
+    third :: Card,
+    fourth :: Card
+  }
+  deriving (Generic)
+
+instance FromForm CardForm
+
+instance FromHttpApiData Card where
+  parseQueryParam :: Text -> Either Text Card
+  parseQueryParam s = maybe (Left "Invalid card") Right (card (unpack s))
+
 type PokerAPI =
-  PokerSite :> Get '[HTML] HomePage
-    :<|> ComparisonSite :> QueryParam "first" String :> QueryParam "second" String :> Get '[HTML] Result
+  Get '[HTML] HomePage
+    :<|> ComparisonSite :> ReqBody '[FormUrlEncoded] CardForm :> Post '[HTML] Result
 
 urlpath :: forall s. (KnownSymbol s) => Text
-urlpath = pack $ symbolVal (Proxy :: Proxy s)
+urlpath = pack $ "/" <> symbolVal (Proxy :: Proxy s)
 
 instance ToHtml HomePage where
   toHtml HomePage =
     doc_
-      ( div_
-          ( h1_ "Compare two cards!"
-              <> form_
-                [action_ (urlpath @ComparisonSite)]
-                (inp_ "first" "First Card:")
-              <> inp_ "second" "Second Card:"
+      ( h2_
+          "Equity Calculator"
+          <> form_
+            [action_ (urlpath @ComparisonSite), method_ "POST"]
+            ( fieldset_
+                ( cardsForm "first" "second" "Seat 1"
+                    <> br_ []
+                    <> cardsForm "third" "fourth" "Seat 2"
+                    <> br_ []
+                    <> button_ "Submit"
+                )
+            )
+      )
+  toHtmlRaw = toHtml
+
+cardsForm :: (Monad m) => Text -> Text -> Text -> HtmlT m ()
+cardsForm id1 id2 title =
+  fieldset_
+    ( legend_ (toHtml title)
+        <> inp_ id1 "First Card:"
+        <> inp_ id2 "Second Card:"
+    )
+
+instance ToHtml Result where
+  toHtml (Result (pw1, pw2, chops)) =
+    doc_
+      ( p_
+          ( toHtml ("Player 1 wins " <> take 4 (show $ pw1 * 100) <> "% of the time")
               <> br_ []
+              <> toHtml ("Player 2 wins " <> take 4 (show $ pw2 * 100) <> "% of the time")
               <> br_ []
-              <> button_ "Submit"
+              <> toHtml ("They chop " <> take 4 (show (100 * chops)) <> "% of the time")
           )
       )
   toHtmlRaw = toHtml
 
-instance ToHtml Result where
-  toHtml (Result w) = mempty
-  toHtmlRaw = toHtml
-
 inp_ :: (Applicative m) => Text -> HtmlT m () -> HtmlT m ()
-inp_ id label = label_ [for_ id] label <> br_ [] <> input_ [id_ id, name_ id]
+inp_ id label = label_ [for_ id] label <> br_ [] <> input_ [id_ id, name_ id] <> br_ []
 
 server :: Server PokerAPI
 server = return HomePage :<|> comparison
   where
-    comparison :: Maybe String -> Maybe String -> Handler Result
-    comparison (Just s1) (Just s2) = return $ Result $ max (card s1) (card s2)
-    comparison _ _ = return $ Result (card "Ah")
+    comparison :: CardForm -> Handler Result
+    comparison (CardForm c1 c2 c3 c4) = return $ Result $ go [c1, c2] [c3, c4] 3
 
 app :: Application
 app = serve (Proxy @PokerAPI) server

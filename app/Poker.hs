@@ -86,24 +86,25 @@ instance Show Suit where
   show Clubs = "c"
   show Hearts = "h"
 
--- main :: IO ()
--- main = do
---   let ([cp2, cp1], d2) = deal $ deal ([], shuffle deck 0)
---       (b, rem) = drawN 0 d2
---       p1 = possibleHands (cp1 ++ b) rem
---       p2 = possibleHands (cp2 ++ b) rem
---       (p1Ws, p2Ws) = (countWins (>) p1 p2, countWins (<) p1 p2) `using` parTuple2 rseq rseq
---       chops = countWins (==) p1 p2
---       totHands = p1Ws + p2Ws + chops
-
---   putStrLn $ "P(Player 1 wins) = " <> show (calcWinRatio p1Ws totHands)
---   putStrLn $ "P(Player 2 wins) = " <> show (calcWinRatio p2Ws totHands)
---   putStrLn $ "P(chop) = " <> show (calcWinRatio chops totHands)
---   where
---     countWins comp p1 p2 = length $ filter id $ zipWith comp p1 p2
---     calcWinRatio pws totpws = fromIntegral pws / fromIntegral totpws
+go :: [Card] -> [Card] -> Int -> (Double, Double, Double)
+go cp1 cp2 n = do
+  let d = shuffle deck 0
+      rem = filter (not . flip any (cp1 ++ cp2) . strictEquals) d -- remove player cards from deck
+      (b, rem') = drawN n rem -- draw board cards
+      p1 = possibleHands (cp1 ++ b) rem' -- calculate all possible hands for player 1
+      p2 = possibleHands (cp2 ++ b) rem' -- calculate all possible hands for player 2
+      (p1Ws, p2Ws) = (countWins (>) p1 p2, countWins (<) p1 p2) `using` parTuple2 rseq rseq
+      chops = countWins (==) p1 p2
+      totHands = p1Ws + p2Ws + chops
+   in (calcWinRatio p1Ws totHands, calcWinRatio p2Ws totHands, calcWinRatio chops totHands)
+  where
+    countWins comp p1 p2 = length $ filter id $ zipWith comp p1 p2
+    calcWinRatio pws totpws = fromIntegral pws / fromIntegral totpws
 
 -- utils
+
+strictEquals :: Card -> Card -> Bool
+strictEquals (Card r1 s1) (Card r2 s2) = r1 == r2 && s1 == s2
 
 -- given: player cards, board cards, remaining cards, calculate all best hands for each combination of remaining board cards
 possibleHands :: [Card] -> [Card] -> [Hand]
